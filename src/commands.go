@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func searchPackages(repo Repo, query string) {
@@ -15,11 +16,11 @@ func searchPackages(repo Repo, query string) {
 		fmt.Println(boldStyle.Render(section + ":"))
 		for category, packages := range categories {
 			if category != "" {
-				fmt.Println("  " + infoStyle.Render(category + ":"))
+				fmt.Println(" " + infoStyle.Render(category + ":"))
 			}
 			for name, url := range packages {
 				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-					fmt.Printf("    %s => %s\n", successStyle.Render(name), url)
+					fmt.Printf(" %s => %s\n", successStyle.Render(name), url)
 					found = true
 				}
 			}
@@ -54,17 +55,14 @@ func installPackage(repo Repo, pkg string, libDir string) {
 		fmt.Println(errorStyle.Render("Package not found: " + pkg))
 		return
 	}
-
 	dest := filepath.Join(libDir, pkg)
 	tmpDest := filepath.Join(os.TempDir(), pkg+"-"+fmt.Sprintf("%d", time.Now().Unix()))
-
 	fmt.Println(infoStyle.Render("Downloading " + pkg + " from " + url))
 	err := downloadWithProgress(url, tmpDest)
 	if err != nil {
 		fmt.Println(errorStyle.Render("Error downloading: " + err.Error()))
 		return
 	}
-
 	// Move to lib dir
 	if err := os.Rename(tmpDest, dest); err != nil {
 		fmt.Println(errorStyle.Render("Error installing: " + err.Error()))
