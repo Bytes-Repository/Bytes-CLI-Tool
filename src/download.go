@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
-
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type progressModel struct {
@@ -30,25 +29,10 @@ func newProgressModel(url, dest string, reader io.Reader, total int64, file *os.
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF69B4"))
-
 	p := progress.New(
 		progress.WithScaledGradient("#FF7CCB", "#FDFF8C"),
 		progress.WithWidth(50),
-		progress.Theme{
-			Full:              '█',
-			FullLeft:          '█',
-			FullRight:         '█',
-			FullHead:          '█',
-			Empty:             '░',
-			EmptyLeft:         '░',
-			EmptyRight:        '░',
-			EmptyHead:         '░',
-			Ramp:              []rune{'▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'},
-			GradientFromColor: lipgloss.Color("#FF7CCB"),
-			GradientToColor:   lipgloss.Color("#FDFF8C"),
-		},
 	)
-
 	return progressModel{
 		prog:    p,
 		spinner: s,
@@ -61,7 +45,7 @@ func newProgressModel(url, dest string, reader io.Reader, total int64, file *os.
 }
 
 func (m progressModel) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.startDownload)
+	return tea.Batch(m.spinner.Tick, m.startDownload())
 }
 
 func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -93,12 +77,6 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 	}
-
-	if !m.done {
-		m.done = true
-		return m, m.startDownload
-	}
-
 	return m, nil
 }
 
@@ -158,22 +136,17 @@ func downloadWithProgress(url, dest string) error {
 		return err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
-
 	f, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
-
 	m := newProgressModel(url, dest, resp.Body, resp.ContentLength, f)
-
 	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		return err
 	}
-
 	return m.err
 }
