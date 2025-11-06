@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"os/user"
-
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -19,13 +17,13 @@ const (
 )
 
 var (
-	boldStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA"))
-	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
-	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	infoStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
-	warnStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00"))
-	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Align(lipgloss.Center).Width(60).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#FF69B4")).BorderBottom(true)
-	footerStyle   = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#A9A9A9")).Align(lipgloss.Center)
+	boldStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA"))
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
+	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
+	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00"))
+	headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Align(lipgloss.Center).Width(60).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#FF69B4")).BorderBottom(true)
+	footerStyle  = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#A9A9A9")).Align(lipgloss.Center)
 )
 
 func main() {
@@ -33,7 +31,6 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
-
 	usr, err := user.Current()
 	if err != nil {
 		fmt.Println(errorStyle.Render("Error getting user home: " + err.Error()))
@@ -51,7 +48,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
 	cmd := os.Args[1]
 	switch cmd {
 	case "search":
@@ -109,14 +105,14 @@ func printUsage() {
 	header := headerStyle.Render(appName + " v" + version)
 	commands := `
 Commands:
-  search <query>     - Search for packages
-  install <package>  - Install a package
-  remove <package>   - Remove a package
-  update             - Update all installed libraries
-  refresh            - Refresh the repository
-  info               - Show tool information
-  how-to-use         - Show how to use and add custom repos
-  how-to-add         - Show how to add your repository
+  search <query> - Search for packages
+  install <package> - Install a package
+  remove <package> - Remove a package
+  update - Update all installed libraries
+  refresh - Refresh the repository
+  info - Show tool information
+  how-to-use - Show how to use and add custom repos
+  how-to-add - Show how to add your repository
 `
 	footer := footerStyle.Render("Created by HackerOS Team")
 	fmt.Println(lipgloss.JoinVertical(lipgloss.Left, header, infoStyle.Render(commands), footer))
