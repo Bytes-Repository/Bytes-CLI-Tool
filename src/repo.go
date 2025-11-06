@@ -1,3 +1,4 @@
+// repo.go
 package main
 
 import (
@@ -7,6 +8,7 @@ import (
 	"strings"
 	"net/http"
 	"io"
+	"path/filepath"
 )
 
 // Repo structure: map[section]map[category]map[name]url
@@ -18,22 +20,18 @@ func refreshRepo(localPath string) error {
 		return err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
-
 	dir := filepath.Dir(localPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-
 	f, err := os.Create(localPath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
 	_, err = io.Copy(f, resp.Body)
 	return err
 }
@@ -44,18 +42,15 @@ func parseRepo(path string) (Repo, error) {
 		return nil, err
 	}
 	defer f.Close()
-
 	repo := make(Repo)
 	var currentSection string
 	var currentCategory string
 	scanner := bufio.NewScanner(f)
-
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
-
 		if strings.HasPrefix(line, "=") && strings.Contains(line, "[") {
 			// New section, e.g., = Public [
 			parts := strings.SplitN(line, " [", 2)
@@ -94,6 +89,5 @@ func parseRepo(path string) (Repo, error) {
 			}
 		}
 	}
-
 	return repo, scanner.Err()
 }
