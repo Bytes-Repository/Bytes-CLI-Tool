@@ -1,0 +1,115 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func searchPackages(repo Repo, query string) {
+	found := false
+	header := headerStyle.Render("Search Results for: " + query)
+	fmt.Println(header)
+	for section, categories := range repo {
+		fmt.Println(boldStyle.Render(section + ":"))
+		for category, packages := range categories {
+			if category != "" {
+				fmt.Println("  " + infoStyle.Render(category + ":"))
+			}
+			for name, url := range packages {
+				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
+					fmt.Printf("    %s => %s\n", successStyle.Render(name), url)
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		fmt.Println(warnStyle.Render("No packages found matching: " + query))
+	}
+}
+
+func installPackage(repo Repo, pkg string, libDir string) {
+	var url string
+	found := false
+	for _, categories := range repo {
+		for _, packages := range categories {
+			for name, u := range packages {
+				if name == pkg {
+					url = u
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if !found {
+		fmt.Println(errorStyle.Render("Package not found: " + pkg))
+		return
+	}
+
+	dest := filepath.Join(libDir, pkg)
+	tmpDest := filepath.Join(os.TempDir(), pkg+"-"+fmt.Sprintf("%d", time.Now().Unix()))
+
+	fmt.Println(infoStyle.Render("Downloading " + pkg + " from " + url))
+	err := downloadWithProgress(url, tmpDest)
+	if err != nil {
+		fmt.Println(errorStyle.Render("Error downloading: " + err.Error()))
+		return
+	}
+
+	// Move to lib dir
+	if err := os.Rename(tmpDest, dest); err != nil {
+		fmt.Println(errorStyle.Render("Error installing: " + err.Error()))
+		os.Remove(tmpDest)
+		return
+	}
+	fmt.Println(successStyle.Render("Installed " + pkg + " to " + libDir))
+}
+
+func removePackage(pkg string, libDir string) {
+	path := filepath.Join(libDir, pkg)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Println(warnStyle.Render("Package not installed: " + pkg))
+		return
+	}
+	if err := os.Remove(path); err != nil {
+		fmt.Println(errorStyle.Render("Error removing: " + err.Error()))
+		return
+	}
+	fmt.Println(successStyle.Render("Removed " + pkg))
+}
+
+func updatePackages(libDir, localRepo string) {
+	files, err := os.ReadDir(libDir)
+	if err != nil {
+		fmt.Println(errorStyle.Render("Error reading lib dir: " + err.Error()))
+		return
+	}
+	repo, err := parseRepo(localRepo)
+	if err != nil {
+		fmt.Println(errorStyle.Render("Error parsing repo: " + err.Error()))
+		return
+	}
+	updated := 0
+	for _, file := range files {
+		if !file.IsDir() {
+			pkg := file.Name()
+			fmt.Println(infoStyle.Render("Checking update for " + pkg))
+			installPackage(repo, pkg, libDir) // Re-install to update
+			updated++
+		}
+	}
+	if updated == 0 {
+		fmt.Println(warnStyle.Render("No packages installed to update."))
+	} else {
+		fmt.Println(successStyle.Render(fmt.Sprintf("Updated %d packages.", updated)))
+	}
+}
