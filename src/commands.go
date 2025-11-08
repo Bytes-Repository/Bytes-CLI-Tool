@@ -57,7 +57,7 @@ func moveFile(src, dst string) error {
 
 	out.Sync() // Ensure written to disk
 
-	err = os.Chmod(dst, 0644)
+	err = os.Chmod(dst, 0755)
 	if err != nil {
 		return err
 	}
