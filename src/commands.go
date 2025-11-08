@@ -16,11 +16,15 @@ func searchPackages(repo Repo, query string) {
 		fmt.Println(boldStyle.Render(section + ":"))
 		for category, packages := range categories {
 			if category != "" {
-				fmt.Println(" " + infoStyle.Render(category + ":"))
+				fmt.Println("  " + infoStyle.Render(category + ":"))
 			}
 			for name, url := range packages {
+				urlDisplay := url
+				if url == "" {
+					urlDisplay = "(no release yet)"
+				}
 				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-					fmt.Printf(" %s => %s\n", successStyle.Render(name), url)
+					fmt.Printf("   %s => %s\n", successStyle.Render(name), urlDisplay)
 					found = true
 				}
 			}
@@ -31,7 +35,7 @@ func searchPackages(repo Repo, query string) {
 	}
 }
 
-func installPackage(repo Repo, pkg string, libDir string) {
+func installPackage(repo Repo, pkg string, libDir string) bool {
 	var url string
 	found := false
 	for _, categories := range repo {
@@ -53,7 +57,11 @@ func installPackage(repo Repo, pkg string, libDir string) {
 	}
 	if !found {
 		fmt.Println(errorStyle.Render("Package not found: " + pkg))
-		return
+		return false
+	}
+	if url == "" {
+		fmt.Println(errorStyle.Render("No release found for package: " + pkg))
+		return false
 	}
 	dest := filepath.Join(libDir, pkg)
 	tmpDest := filepath.Join(os.TempDir(), pkg+"-"+fmt.Sprintf("%d", time.Now().Unix()))
@@ -61,15 +69,24 @@ func installPackage(repo Repo, pkg string, libDir string) {
 	err := downloadWithProgress(url, tmpDest)
 	if err != nil {
 		fmt.Println(errorStyle.Render("Error downloading: " + err.Error()))
-		return
+		return false
+	}
+	// Remove existing if exists
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.Remove(dest); err != nil {
+			fmt.Println(errorStyle.Render("Error removing old version: " + err.Error()))
+			os.Remove(tmpDest)
+			return false
+		}
 	}
 	// Move to lib dir
 	if err := os.Rename(tmpDest, dest); err != nil {
 		fmt.Println(errorStyle.Render("Error installing: " + err.Error()))
 		os.Remove(tmpDest)
-		return
+		return false
 	}
 	fmt.Println(successStyle.Render("Installed " + pkg + " to " + libDir))
+	return true
 }
 
 func removePackage(pkg string, libDir string) {
@@ -101,8 +118,9 @@ func updatePackages(libDir, localRepo string) {
 		if !file.IsDir() {
 			pkg := file.Name()
 			fmt.Println(infoStyle.Render("Checking update for " + pkg))
-			installPackage(repo, pkg, libDir) // Re-install to update
-			updated++
+			if installPackage(repo, pkg, libDir) {
+				updated++
+			}
 		}
 	}
 	if updated == 0 {
