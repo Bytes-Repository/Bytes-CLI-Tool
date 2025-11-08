@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,7 +32,7 @@ func newProgressModel(url, dest string, reader io.Reader, total int64, file *os.
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF69B4"))
 	p := progress.New(
 		progress.WithScaledGradient("#FF7CCB", "#FDFF8C"),
-		progress.WithWidth(50),
+			  progress.WithWidth(50),
 	)
 	return progressModel{
 		prog:    p,
@@ -50,32 +51,32 @@ func (m progressModel) Init() tea.Cmd {
 
 func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" || msg.String() == "q" || msg.String() == "esc" {
-			m.err = fmt.Errorf("download cancelled")
-			m.file.Close()
-			os.Remove(m.dest)
-			return m, tea.Quit
-		}
-	case updateProgress:
-		m.read = msg.read
-		percent := float64(m.read) / float64(m.total)
-		cmd := m.prog.SetPercent(percent)
-		if percent >= 1.0 {
-			m.done = true
-			return m, tea.Quit
-		}
-		return m, cmd
-	case progress.FrameMsg:
-		newModel, cmd := m.prog.Update(msg)
-		if newModel, ok := newModel.(progress.Model); ok {
-			m.prog = newModel
-		}
-		return m, cmd
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		case tea.KeyMsg:
+			if msg.String() == "ctrl+c" || msg.String() == "q" || msg.String() == "esc" {
+				m.err = fmt.Errorf("download cancelled")
+				m.file.Close()
+				os.Remove(m.dest)
+				return m, tea.Quit
+			}
+		case updateProgress:
+			m.read = msg.read
+			percent := float64(m.read) / float64(m.total)
+			cmd := m.prog.SetPercent(percent)
+			if percent >= 1.0 {
+				m.done = true
+				return m, tea.Quit
+			}
+			return m, cmd
+		case progress.FrameMsg:
+			newModel, cmd := m.prog.Update(msg)
+			if newModel, ok := newModel.(progress.Model); ok {
+				m.prog = newModel
+			}
+			return m, cmd
+		case spinner.TickMsg:
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
 	}
 	return m, nil
 }
@@ -86,11 +87,11 @@ func (m progressModel) View() string {
 	}
 	pad := strings.Repeat(" ", (m.prog.Width/2)-len("Downloading...")/2)
 	status := fmt.Sprintf("%s Downloading %s...\n\n%s\n\n%.2f%% of %d bytes\nPress q to quit",
-		m.spinner.View(),
-		m.url,
-		m.prog.View(),
-		m.prog.Percent()*100,
-		m.total,
+			      m.spinner.View(),
+			      m.url,
+		       m.prog.View(),
+			      m.prog.Percent()*100,
+			      m.total,
 	)
 	return infoStyle.Render(pad + status)
 }
