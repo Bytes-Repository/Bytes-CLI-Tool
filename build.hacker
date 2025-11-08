@@ -1,2 +1,5 @@
 // go-golang
->
+> cd src
+> go build
+> sudo mv bytes-cli-tool bytes
+> sudo chmod a+x bytes
