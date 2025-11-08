@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 	"net/http"
 	"io"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Repo structure: map[section]map[category]map[name]url
@@ -36,57 +36,43 @@ func refreshRepo(localPath string) error {
 }
 
 func parseRepo(path string) (Repo, error) {
-	f, err := os.Open(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	repo := make(Repo)
-	var currentSection string
-	var currentCategory string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		if strings.HasPrefix(line, "=") && strings.Contains(line, "[") {
-			// New section, e.g., = Public [
-			parts := strings.SplitN(line, " [", 2)
-			section := strings.TrimPrefix(parts[0], "=")
-			repo[section] = make(map[string]map[string]string)
-			currentSection = section
-			currentCategory = ""
-		} else if strings.HasPrefix(line, "=") {
-			// New category, e.g., = GUI [
-			parts := strings.SplitN(line, " [", 2)
-			category := strings.TrimPrefix(parts[0], "=")
-			if currentSection != "" {
-				repo[currentSection][category] = make(map[string]string)
-				currentCategory = category
-			}
-		} else if strings.Contains(line, "=>") {
-			// Package, e.g., obsidian => url
-			parts := strings.SplitN(line, "=>", 2)
-			name := strings.TrimSpace(parts[0])
-			url := strings.TrimSpace(parts[1])
-			if currentSection != "" && currentCategory != "" {
-				repo[currentSection][currentCategory][name] = url
-			} else if currentSection != "" {
-				// Direct package in section
-				if _, ok := repo[currentSection][""]; !ok {
-					repo[currentSection][""] = make(map[string]string)
-				}
-				repo[currentSection][""][name] = url
-			}
-		} else if line == "]" {
-			// End of category or section
-			if currentCategory != "" {
-				currentCategory = ""
-			} else {
-				currentSection = ""
-			}
-		}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(content, &raw); err != nil {
+		return nil, err
 	}
-	return repo, scanner.Err()
+	repo := make(Repo)
+	for section, secValue := range raw {
+		sectionMap := make(map[string]map[string]string)
+		if secMap, ok := secValue.(map[string]interface{}); ok {
+			for catOrPkg, value := range secMap {
+				if catMap, ok := value.(map[string]interface{}); ok {
+					pkgMap := make(map[string]string)
+					for pkg, url := range catMap {
+						if url == nil {
+							pkgMap[pkg] = ""
+						} else {
+							pkgMap[pkg] = url.(string)
+						}
+					}
+					sectionMap[catOrPkg] = pkgMap
+				} else {
+					// Direct package under empty category
+					if _, ok := sectionMap[""]; !ok {
+						sectionMap[""] = make(map[string]string)
+					}
+					if value == nil {
+						sectionMap[""][catOrPkg] = ""
+					} else {
+						sectionMap[""][catOrPkg] = value.(string)
+					}
+				}
+			}
+		}
+		repo[section] = sectionMap
+	}
+	return repo, nil
 }
