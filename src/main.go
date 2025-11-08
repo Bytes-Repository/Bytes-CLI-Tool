@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"os/user"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	repoURL       = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/bytes.io"
 	localRepoPath = "/tmp/bytes.io"
 	libDirSuffix  = "/.hackeros/hacker-lang/libs/"
 	appName       = "Bytes.io CLI Tool"
@@ -134,7 +133,7 @@ func printHowToUse() {
 	How to use and add your own repo to bytes.io:
 	1. Fork the bytes.io repository on GitHub.
 	2. Add your library to the repository/bytes.io file in the Community section.
-	3. Format: Community: { CATEGORY: { your-lib: https://your-release-url } }
+	3. Format: = Community [ = CATEGORY [ your-lib => https://your-release-url ] ]
 	4. Create a pull request to the main repo.
 	5. Once merged, your lib will be available via this tool.
 	`
