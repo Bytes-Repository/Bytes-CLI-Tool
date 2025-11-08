@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,7 @@ func searchPackages(repo Repo, query string) {
 					urlDisplay = "(no release yet)"
 				}
 				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-					fmt.Printf("   %s => %s\n", successStyle.Render(name), urlDisplay)
+					fmt.Printf("    %s => %s\n", successStyle.Render(name), urlDisplay)
 					found = true
 				}
 			}
@@ -35,13 +36,42 @@ func searchPackages(repo Repo, query string) {
 	}
 }
 
+func moveFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		os.Remove(dst)
+		return err
+	}
+
+	out.Sync() // Ensure written to disk
+
+	err = os.Chmod(dst, 0644)
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(src)
+}
+
 func installPackage(repo Repo, pkg string, libDir string) bool {
 	var url string
 	found := false
 	for _, categories := range repo {
 		for _, packages := range categories {
 			for name, u := range packages {
-				if name == pkg {
+				if strings.ToLower(name) == strings.ToLower(pkg) {
 					url = u
 					found = true
 					break
@@ -79,8 +109,8 @@ func installPackage(repo Repo, pkg string, libDir string) bool {
 			return false
 		}
 	}
-	// Move to lib dir
-	if err := os.Rename(tmpDest, dest); err != nil {
+	// Move to lib dir using copy to handle cross-device
+	if err := moveFile(tmpDest, dest); err != nil {
 		fmt.Println(errorStyle.Render("Error installing: " + err.Error()))
 		os.Remove(tmpDest)
 		return false
