@@ -1,3 +1,5 @@
 // sudo
 // curl
+> sudo rm -rf ~/.hackeros/hacker-lang/bin/bytes
+> sudo rm -rf /usr/bin/bytes
 > 
