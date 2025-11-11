@@ -17,7 +17,7 @@ func searchPackages(repo Repo, query string) {
 		fmt.Println(boldStyle.Render(section + ":"))
 		for category, packages := range categories {
 			if category != "" {
-				fmt.Println("  " + infoStyle.Render(category + ":"))
+				fmt.Println(" " + infoStyle.Render(category + ":"))
 			}
 			for name, url := range packages {
 				urlDisplay := url
@@ -25,7 +25,7 @@ func searchPackages(repo Repo, query string) {
 					urlDisplay = "(no release yet)"
 				}
 				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-					fmt.Printf("    %s => %s\n", successStyle.Render(name), urlDisplay)
+					fmt.Printf(" %s => %s\n", successStyle.Render(name), urlDisplay)
 					found = true
 				}
 			}
@@ -42,26 +42,21 @@ func moveFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-
 	_, err = io.Copy(out, in)
 	if err != nil {
 		os.Remove(dst)
 		return err
 	}
-
 	out.Sync() // Ensure written to disk
-
 	err = os.Chmod(dst, 0755)
 	if err != nil {
 		return err
 	}
-
 	return os.Remove(src)
 }
 
