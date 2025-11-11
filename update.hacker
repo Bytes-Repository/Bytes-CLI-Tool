@@ -2,4 +2,9 @@
 // curl
 > sudo rm -rf ~/.hackeros/hacker-lang/bin/bytes
 > sudo rm -rf /usr/bin/bytes
-> curl -L -o bytes ""
+> cd /usr/bin/
+> curl -L -o bytes "https://github.com/Bytes-Repository/Bytes-CLI-Tool/releases/download/v0.3/bytes"
+> sudo chmod a+x bytes
+> cd ~/.hackeros/hacker-lang/bin/
+> curl -L -o bytes "https://github.com/Bytes-Repository/Bytes-CLI-Tool/releases/download/v0.3/bytes"
+> sudo chmod a+x bytes
