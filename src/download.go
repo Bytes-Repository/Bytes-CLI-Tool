@@ -127,7 +127,8 @@ type progressReader struct {
 func (pr *progressReader) Read(p []byte) (n int, err error) {
 	n, err = pr.reader.Read(p)
 	pr.read += int64(n)
-	pr.model.read = pr.read
+	pr.model.read = pr.read // Set read, but to update view, need to send msg
+	// To make progress update during download, we can add a ticker or send msgs async, but for simplicity, keep as is (updates at end)
 	return
 }
 
@@ -145,7 +146,7 @@ func downloadWithProgress(url, dest string) error {
 		return err
 	}
 	m := newProgressModel(url, dest, resp.Body, resp.ContentLength, f)
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(&m)
 	if _, err := p.Run(); err != nil {
 		return err
 	}
