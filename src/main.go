@@ -17,7 +17,7 @@ const (
 	libDirSuffix      = "/.hackeros/hacker-lang/libs/"
 	pluginDirSuffix   = "/.hackeros/hacker-lang/plugins/"
 	appName           = "Bytes.io CLI Tool"
-	version           = "1.1"
+	version           = "0.5"
 )
 
 var (
