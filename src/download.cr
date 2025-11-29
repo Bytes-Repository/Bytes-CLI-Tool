@@ -1,154 +1,55 @@
-package main
+require "http/client"
+require "colorize"
+require "uri"
 
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"strings"
+def get_final_url(url : String) : String
+  headers = HTTP::Headers{"User-Agent" => "bytes-io-cli/0.5 (Crystal)"}
+  max_redirects = 10
+  parsed_url = URI.parse(url)
+  while max_redirects > 0
+    client = HTTP::Client.new(parsed_url)
+    response = client.head(parsed_url.path || "/", headers: headers)
+    if response.status_code == 200
+      return url
+    elsif response.status_code.in?(301, 302, 303, 307, 308)
+      location = response.headers["Location"]?
+      if location
+        url = location.starts_with?("http") ? location : parsed_url.resolve(location).to_s
+        parsed_url = URI.parse(url)
+        max_redirects -= 1
+      else
+        raise "Redirect without location"
+      end
+    else
+      raise "Bad status: #{response.status_code} for HEAD"
+    end
+  end
+  raise "Too many redirects"
+end
 
-	"github.com/charmbracelet/bubbles/progress"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-)
-
-type progressModel struct {
-	prog    progress.Model
-	spinner spinner.Model
-	total   int64
-	read    int64
-	err     error
-	done    bool
-	url     string
-	dest    string
-	reader  io.Reader
-	file    *os.File
-}
-
-func newProgressModel(url, dest string, reader io.Reader, total int64, file *os.File) progressModel {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF69B4"))
-	p := progress.New(
-		progress.WithScaledGradient("#FF7CCB", "#FDFF8C"),
-			  progress.WithWidth(50),
-	)
-	return progressModel{
-		prog:    p,
-		spinner: s,
-		total:   total,
-		url:     url,
-		dest:    dest,
-		reader:  reader,
-		file:    file,
-	}
-}
-
-func (m progressModel) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.startDownload())
-}
-
-func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-		case tea.KeyMsg:
-			if msg.String() == "ctrl+c" || msg.String() == "q" || msg.String() == "esc" {
-				m.err = fmt.Errorf("download cancelled")
-				m.file.Close()
-				os.Remove(m.dest)
-				return m, tea.Quit
-			}
-		case updateProgress:
-			m.read = msg.read
-			percent := float64(m.read) / float64(m.total)
-			cmd := m.prog.SetPercent(percent)
-			if percent >= 1.0 {
-				m.done = true
-				return m, tea.Quit
-			}
-			return m, cmd
-		case progress.FrameMsg:
-			newModel, cmd := m.prog.Update(msg)
-			if newModel, ok := newModel.(progress.Model); ok {
-				m.prog = newModel
-			}
-			return m, cmd
-		case spinner.TickMsg:
-			var cmd tea.Cmd
-			m.spinner, cmd = m.spinner.Update(msg)
-			return m, cmd
-	}
-	return m, nil
-}
-
-func (m progressModel) View() string {
-	if m.err != nil {
-		return errorStyle.Render("Error: " + m.err.Error()) + "\n"
-	}
-	pad := strings.Repeat(" ", (m.prog.Width/2)-len("Downloading...")/2)
-	status := fmt.Sprintf("%s Downloading %s...\n\n%s\n\n%.2f%% of %d bytes\nPress q to quit",
-			      m.spinner.View(),
-			      m.url,
-		       m.prog.View(),
-			      m.prog.Percent()*100,
-			      m.total,
-	)
-	return infoStyle.Render(pad + status)
-}
-
-func (m *progressModel) startDownload() tea.Cmd {
-	return func() tea.Msg {
-		pr := &progressReader{
-			reader: m.reader,
-			total:  m.total,
-			model:  m,
-		}
-		_, m.err = io.Copy(m.file, pr)
-		m.file.Close()
-		if m.err != nil {
-			os.Remove(m.dest)
-			return nil
-		}
-		return updateProgress{read: m.total}
-	}
-}
-
-type updateProgress struct {
-	read int64
-}
-
-type progressReader struct {
-	reader io.Reader
-	total  int64
-	read   int64
-	model  *progressModel
-}
-
-func (pr *progressReader) Read(p []byte) (n int, err error) {
-	n, err = pr.reader.Read(p)
-	pr.read += int64(n)
-	pr.model.read = pr.read // Set read, but to update view, need to send msg
-	// To make progress update during download, we can add a ticker or send msgs async, but for simplicity, keep as is (updates at end)
-	return
-}
-
-func downloadWithProgress(url, dest string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-	f, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	m := newProgressModel(url, dest, resp.Body, resp.ContentLength, f)
-	p := tea.NewProgram(&m)
-	if _, err := p.Run(); err != nil {
-		return err
-	}
-	return m.err
-}
+def download_with_progress(url : String, dest : String) : Nil
+  final_url = get_final_url(url)
+  headers = HTTP::Headers{"User-Agent" => "bytes-io-cli/0.5 (Crystal)"}
+  HTTP::Client.get(final_url, headers: headers) do |response|
+    if response.status_code != 200
+      raise "Bad status: #{response.status_code}"
+    end
+    total = response.headers["Content-Length"]?.try(&.to_i64) || 0_i64
+    read = 0_i64
+    File.open(dest, "wb") do |file|
+      buffer = Bytes.new(4096)
+      while (bytes_read = response.body_io.read(buffer)) > 0
+        file.write(buffer[0...bytes_read])
+        read += bytes_read
+        if total > 0
+          percent = (read.to_f / total * 100).round(2)
+          print "\r#{info_style("Downloading #{File.basename(url)}...")} #{percent}% of #{total} bytes".ljust(80)
+        else
+          print "\r#{info_style("Downloading #{File.basename(url)}...")} #{read} bytes downloaded".ljust(80)
+        end
+        STDOUT.flush
+      end
+    end
+    puts # New line after progress
+  end
+end
