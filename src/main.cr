@@ -1,244 +1,287 @@
-package main
+require "option_parser"
+require "colorize"
+require "file_utils"
+require "./repo"
+require "./commands"
+require "./download"
 
-import (
-	"fmt"
-	"os"
-	"os/user"
-	"path/filepath"
+APP_NAME = "Bytes.io CLI Tool"
+VERSION = "0.5"
+REPO_URL = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/bytes.io"
+LOCAL_REPO_PATH = "/tmp/bytes.io"
+PLUGIN_REPO_URL = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/plugins-repo.hacker"
+LOCAL_PLUGIN_REPO = "/tmp/plugins-repo.hacker"
+LIB_DIR_SUFFIX = "/.hackeros/hacker-lang/libs/"
+PLUGIN_DIR_SUFFIX = "/.hackeros/hacker-lang/plugins/"
 
-	"github.com/charmbracelet/lipgloss"
-)
+# Styles
+def bold_style(text : String) : String
+  text.colorize.bold.fore(:white).to_s
+end
 
-const (
-	repoURL           = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/bytes.io"
-	localRepoPath     = "/tmp/bytes.io"
-	pluginRepoURL     = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/plugins-repo.hacker"
-	localPluginRepo   = "/tmp/plugins-repo.hacker"
-	libDirSuffix      = "/.hackeros/hacker-lang/libs/"
-	pluginDirSuffix   = "/.hackeros/hacker-lang/plugins/"
-	appName           = "Bytes.io CLI Tool"
-	version           = "0.5"
-)
+def success_style(text : String) : String
+  text.colorize.fore(:green).to_s
+end
 
-var (
-	boldStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA"))
-	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
-	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00"))
-	headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Align(lipgloss.Center).Width(60).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#FF69B4")).BorderBottom(true)
-	footerStyle  = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#A9A9A9")).Align(lipgloss.Center)
-)
+def error_style(text : String) : String
+  text.colorize.fore(:red).to_s
+end
 
-func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-	usr, err := user.Current()
-	if err != nil {
-		fmt.Println(errorStyle.Render("Error getting user home: " + err.Error()))
-		os.Exit(1)
-	}
-	libDir := filepath.Join(usr.HomeDir, libDirSuffix)
-	if err := os.MkdirAll(libDir, 0755); err != nil {
-		fmt.Println(errorStyle.Render("Error creating lib dir: " + err.Error()))
-		os.Exit(1)
-	}
-	pluginDir := filepath.Join(usr.HomeDir, pluginDirSuffix)
-	if err := os.MkdirAll(pluginDir, 0755); err != nil {
-		fmt.Println(errorStyle.Render("Error creating plugin dir: " + err.Error()))
-		os.Exit(1)
-	}
-	cmd := os.Args[1]
-	switch cmd {
-		case "plugin":
-			if len(os.Args) < 3 {
-				fmt.Println(errorStyle.Render("Usage: plugin <subcommand> [args]"))
-				printPluginUsage()
-				os.Exit(1)
-			}
-			subcmd := os.Args[2]
-			if _, err := os.Stat(localPluginRepo); os.IsNotExist(err) {
-				if err := refreshRepo(pluginRepoURL, localPluginRepo); err != nil {
-					fmt.Println(errorStyle.Render("Error refreshing plugin repo: " + err.Error()))
-					os.Exit(1)
-				}
-			}
-			repo, err := parseRepo(localPluginRepo)
-			if err != nil {
-				fmt.Println(errorStyle.Render("Error parsing plugin repo: " + err.Error()))
-				os.Exit(1)
-			}
-			switch subcmd {
-				case "search":
-					if len(os.Args) < 4 {
-						fmt.Println(errorStyle.Render("Usage: plugin search <query>"))
-						os.Exit(1)
-					}
-					query := os.Args[3]
-					searchPackages(repo, query)
-				case "install":
-					if len(os.Args) < 4 {
-						fmt.Println(errorStyle.Render("Usage: plugin install <plugin>"))
-						os.Exit(1)
-					}
-					pkg := os.Args[3]
-					installPackage(repo, pkg, pluginDir)
-				case "remove":
-					if len(os.Args) < 4 {
-						fmt.Println(errorStyle.Render("Usage: plugin remove <plugin>"))
-						os.Exit(1)
-					}
-					pkg := os.Args[3]
-					removePackage(pkg, pluginDir)
-				case "update":
-					updatePackages(pluginDir, localPluginRepo)
-				case "refresh":
-					if err := refreshRepo(pluginRepoURL, localPluginRepo); err != nil {
-						fmt.Println(errorStyle.Render("Error refreshing: " + err.Error()))
-					} else {
-						fmt.Println(successStyle.Render("Plugin repo refreshed successfully."))
-					}
-				default:
-					fmt.Println(errorStyle.Render("Unknown plugin subcommand: " + subcmd))
-					printPluginUsage()
-					os.Exit(1)
-			}
-				case "search":
-					if len(os.Args) < 3 {
-						fmt.Println(errorStyle.Render("Usage: search <query>"))
-						os.Exit(1)
-					}
-					if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
-						if err := refreshRepo(repoURL, localRepoPath); err != nil {
-							fmt.Println(errorStyle.Render("Error refreshing repo: " + err.Error()))
-							os.Exit(1)
-						}
-					}
-					query := os.Args[2]
-					repo, err := parseRepo(localRepoPath)
-					if err != nil {
-						fmt.Println(errorStyle.Render("Error parsing repo: " + err.Error()))
-						os.Exit(1)
-					}
-					searchPackages(repo, query)
-				case "install":
-					if len(os.Args) < 3 {
-						fmt.Println(errorStyle.Render("Usage: install <package>"))
-						os.Exit(1)
-					}
-					if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
-						if err := refreshRepo(repoURL, localRepoPath); err != nil {
-							fmt.Println(errorStyle.Render("Error refreshing repo: " + err.Error()))
-							os.Exit(1)
-						}
-					}
-					pkg := os.Args[2]
-					repo, err := parseRepo(localRepoPath)
-					if err != nil {
-						fmt.Println(errorStyle.Render("Error parsing repo: " + err.Error()))
-						os.Exit(1)
-					}
-					installPackage(repo, pkg, libDir)
-				case "remove":
-					if len(os.Args) < 3 {
-						fmt.Println(errorStyle.Render("Usage: remove <package>"))
-						os.Exit(1)
-					}
-					pkg := os.Args[2]
-					removePackage(pkg, libDir)
-				case "update":
-					if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
-						if err := refreshRepo(repoURL, localRepoPath); err != nil {
-							fmt.Println(errorStyle.Render("Error refreshing repo: " + err.Error()))
-							os.Exit(1)
-						}
-					}
-					updatePackages(libDir, localRepoPath)
-				case "refresh":
-					if err := refreshRepo(repoURL, localRepoPath); err != nil {
-						fmt.Println(errorStyle.Render("Error refreshing: " + err.Error()))
-					} else {
-						fmt.Println(successStyle.Render("Repo refreshed successfully."))
-					}
-				case "info":
-					printInfo()
-				case "how-to-use":
-					printHowToUse()
-				case "how-to-add":
-					printHowToAdd()
-				default:
-					printUsage()
-					os.Exit(1)
-	}
-}
+def info_style(text : String) : String
+  text.colorize.fore(:cyan).to_s
+end
 
-func printUsage() {
-	header := headerStyle.Render(appName + " v" + version)
-	commands := `
-	Commands:
-	search <query> - Search for packages
-	install <package> - Install a package
-	remove <package> - Remove a package
-	update - Update all installed libraries
-	refresh - Refresh the repository
-	info - Show tool information
-	how-to-use - Show how to use and add custom repos
-	how-to-add - Show how to add your repository
+def warn_style(text : String) : String
+  text.colorize.fore(:yellow).to_s
+end
 
-	Plugin Commands:
-	plugin search <query> - Search for plugins
-	plugin install <plugin> - Install a plugin
-	plugin remove <plugin> - Remove a plugin
-	plugin update - Update all installed plugins
-	plugin refresh - Refresh the plugin repository
-	`
-	footer := footerStyle.Render("Created by HackerOS Team")
-	fmt.Println(lipgloss.JoinVertical(lipgloss.Left, header, infoStyle.Render(commands), footer))
-}
+def center_text(text : String, width : Int32) : String
+  len = text.size
+  if len >= width
+    text
+  else
+    left = (width - len) // 2
+    right = width - len - left
+    " " * left + text + " " * right
+  end
+end
 
-func printPluginUsage() {
-	commands := `
-	Plugin Commands:
-	search <query> - Search for plugins
-	install <plugin> - Install a plugin
-	remove <plugin> - Remove a plugin
-	update - Update all installed plugins
-	refresh - Refresh the plugin repository
-	`
-	fmt.Println(infoStyle.Render(commands))
-}
+def header_style(text : String, width : Int32 = 60) : String
+  padded = center_text(text, width).colorize.bold.fore(:yellow).to_s
+  border = ("─" * width).colorize.fore(:magenta).to_s
+  "#{padded}\n#{border}"
+end
 
-func printInfo() {
-	info := `
-	Bytes.io CLI Tool for Hacker Lang (HackerOS)
-	Version: ` + version + `
-	Repository: https://github.com/Bytes-Repository/bytes.io
-	Libs installed in: ~/.hackeros/hacker-lang/libs/
-	Plugins installed in: ~/.hackeros/hacker-lang/plugins/
-	`
-	fmt.Println(infoStyle.Render(info))
-}
+def footer_style(text : String) : String
+  text.colorize.italic.fore(:dark_gray).to_s
+end
 
-func printHowToUse() {
-	guide := `
-	How to use and add your own repo to bytes.io:
-	1. Fork the bytes.io repository on GitHub.
-	2. Add your library to the repository/bytes.io file in the Community section.
-	3. Format: Community: { CATEGORY: { your-lib: https://your-release-url } }
-	4. Create a pull request to the main repo.
-	5. Once merged, your lib will be available via this tool.
-	`
-	fmt.Println(infoStyle.Render(guide))
-	fmt.Println(successStyle.Render("Happy hacking!"))
-}
+def main
+  if ARGV.empty?
+    print_usage
+    exit(1)
+  end
 
-func printHowToAdd() {
-	guide := `
-	How to add your repository:
-	Zgłoś swoje repozytorium w https://github.com/Bytes-Repository/bytes.io/issues lub https://github.com/Bytes-Repository/bytes.io/discussions
-	Alternatively, follow the how-to-use guide to submit via PR.
-	`
-	fmt.Println(infoStyle.Render(guide))
-}
+  home = ENV["HOME"]? || begin
+    puts error_style("Error getting user home")
+    exit(1)
+  end
+
+  lib_dir = File.join(home, LIB_DIR_SUFFIX)
+  Dir.mkdir_p(lib_dir) rescue begin
+    puts error_style("Error creating lib dir")
+    exit(1)
+  end
+
+  plugin_dir = File.join(home, PLUGIN_DIR_SUFFIX)
+  Dir.mkdir_p(plugin_dir) rescue begin
+    puts error_style("Error creating plugin dir")
+    exit(1)
+  end
+
+  cmd = ARGV[0]
+  case cmd
+  when "plugin"
+    if ARGV.size < 2
+      puts error_style("Usage: plugin <subcommand> [args]")
+      print_plugin_usage
+      exit(1)
+    end
+    subcmd = ARGV[1]
+    unless File.exists?(LOCAL_PLUGIN_REPO)
+      begin
+        refresh_repo(PLUGIN_REPO_URL, LOCAL_PLUGIN_REPO)
+      rescue ex
+        puts error_style("Error refreshing plugin repo: #{ex.message}")
+        exit(1)
+      end
+    end
+    repo = begin
+      parse_repo(LOCAL_PLUGIN_REPO)
+    rescue ex
+      puts error_style("Error parsing plugin repo: #{ex.message}")
+      exit(1)
+    end
+    case subcmd
+    when "search"
+      if ARGV.size < 3
+        puts error_style("Usage: plugin search <query>")
+        exit(1)
+      end
+      query = ARGV[2]
+      search_packages(repo, query)
+    when "install"
+      if ARGV.size < 3
+        puts error_style("Usage: plugin install <plugin>")
+        exit(1)
+      end
+      pkg = ARGV[2]
+      install_package(repo, pkg, plugin_dir)
+    when "remove"
+      if ARGV.size < 3
+        puts error_style("Usage: plugin remove <plugin>")
+        exit(1)
+      end
+      pkg = ARGV[2]
+      remove_package(pkg, plugin_dir)
+    when "update"
+      update_packages(plugin_dir, LOCAL_PLUGIN_REPO)
+    when "refresh"
+      begin
+        refresh_repo(PLUGIN_REPO_URL, LOCAL_PLUGIN_REPO)
+      rescue ex
+        puts error_style("Error refreshing: #{ex.message}")
+      end
+      puts success_style("Plugin repo refreshed successfully.")
+    else
+      puts error_style("Unknown plugin subcommand: #{subcmd}")
+      print_plugin_usage
+      exit(1)
+    end
+  when "search"
+    if ARGV.size < 2
+      puts error_style("Usage: search <query>")
+      exit(1)
+    end
+    unless File.exists?(LOCAL_REPO_PATH)
+      begin
+        refresh_repo(REPO_URL, LOCAL_REPO_PATH)
+      rescue ex
+        puts error_style("Error refreshing repo: #{ex.message}")
+        exit(1)
+      end
+    end
+    query = ARGV[1]
+    repo = begin
+      parse_repo(LOCAL_REPO_PATH)
+    rescue ex
+      puts error_style("Error parsing repo: #{ex.message}")
+      exit(1)
+    end
+    search_packages(repo, query)
+  when "install"
+    if ARGV.size < 2
+      puts error_style("Usage: install <package>")
+      exit(1)
+    end
+    unless File.exists?(LOCAL_REPO_PATH)
+      begin
+        refresh_repo(REPO_URL, LOCAL_REPO_PATH)
+      rescue ex
+        puts error_style("Error refreshing repo: #{ex.message}")
+        exit(1)
+      end
+    end
+    pkg = ARGV[1]
+    repo = begin
+      parse_repo(LOCAL_REPO_PATH)
+    rescue ex
+      puts error_style("Error parsing repo: #{ex.message}")
+      exit(1)
+    end
+    install_package(repo, pkg, lib_dir)
+  when "remove"
+    if ARGV.size < 2
+      puts error_style("Usage: remove <package>")
+      exit(1)
+    end
+    pkg = ARGV[1]
+    remove_package(pkg, lib_dir)
+  when "update"
+    unless File.exists?(LOCAL_REPO_PATH)
+      begin
+        refresh_repo(REPO_URL, LOCAL_REPO_PATH)
+      rescue ex
+        puts error_style("Error refreshing repo: #{ex.message}")
+        exit(1)
+      end
+    end
+    update_packages(lib_dir, LOCAL_REPO_PATH)
+  when "refresh"
+    begin
+      refresh_repo(REPO_URL, LOCAL_REPO_PATH)
+    rescue ex
+      puts error_style("Error refreshing: #{ex.message}")
+    end
+    puts success_style("Repo refreshed successfully.")
+  when "info"
+    print_info
+  when "how-to-use"
+    print_how_to_use
+  when "how-to-add"
+    print_how_to_add
+  else
+    print_usage
+    exit(1)
+  end
+end
+
+def print_usage
+  header = header_style("#{APP_NAME} v#{VERSION}")
+  commands = %(
+Commands:
+search <query> - Search for packages
+install <package> - Install a package
+remove <package> - Remove a package
+update - Update all installed libraries
+refresh - Refresh the repository
+info - Show tool information
+how-to-use - Show how to use and add custom repos
+how-to-add - Show how to add your repository
+Plugin Commands:
+plugin search <query> - Search for plugins
+plugin install <plugin> - Install a plugin
+plugin remove <plugin> - Remove a plugin
+plugin update - Update all installed plugins
+plugin refresh - Refresh the plugin repository
+  )
+  footer = footer_style("Created by HackerOS Team")
+  puts "#{header}\n#{info_style(commands.strip)}\n#{footer}"
+end
+
+def print_plugin_usage
+  commands = %(
+Plugin Commands:
+search <query> - Search for plugins
+install <plugin> - Install a plugin
+remove <plugin> - Remove a plugin
+update - Update all installed plugins
+refresh - Refresh the plugin repository
+  )
+  puts info_style(commands.strip)
+end
+
+def print_info
+  info = %(
+Bytes.io CLI Tool for Hacker Lang (HackerOS)
+Version: #{VERSION}
+Repository: https://github.com/Bytes-Repository/bytes.io
+Libs installed in: ~/.hackeros/hacker-lang/libs/
+Plugins installed in: ~/.hackeros/hacker-lang/plugins/
+  )
+  puts info_style(info.strip)
+end
+
+def print_how_to_use
+  guide = %(
+How to use and add your own repo to bytes.io:
+1. Fork the bytes.io repository on GitHub.
+2. Add your library to the repository/bytes.io file in the Community section.
+3. Format: Community: { CATEGORY: { your-lib: https://your-release-url } }
+4. Create a pull request to the main repo.
+5. Once merged, your lib will be available via this tool.
+  )
+  puts info_style(guide.strip)
+  puts success_style("Happy hacking!")
+end
+
+def print_how_to_add
+  guide = %(
+How to add your repository:
+Zgłoś swoje repozytorium w https://github.com/Bytes-Repository/bytes.io/issues lub https://github.com/Bytes-Repository/bytes.io/discussions
+Alternatively, follow the how-to-use guide to submit via PR.
+  )
+  puts info_style(guide.strip)
+end
+
+main
