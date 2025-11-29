@@ -1,9 +1,7 @@
 require "http/client"
 require "yaml"
 require "file_utils"
-
 alias Repo = Hash(String, Hash(String, Hash(String, String)))
-
 def refresh_repo(url : String, local_path : String) : Nil
   response = HTTP::Client.get(url)
   if response.status_code != 200
@@ -12,7 +10,6 @@ def refresh_repo(url : String, local_path : String) : Nil
   Dir.mkdir_p(File.dirname(local_path))
   File.write(local_path, response.body)
 end
-
 def parse_repo(path : String) : Repo
   data = File.read(path)
   raw = YAML.parse(data).as_h
