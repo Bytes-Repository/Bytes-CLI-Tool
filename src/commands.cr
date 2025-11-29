@@ -1,6 +1,5 @@
 require "file_utils"
 require "time"
-
 def search_packages(repo : Repo, query : String)
   found = false
   puts header_style("Search Results for: #{query}")
@@ -19,7 +18,6 @@ def search_packages(repo : Repo, query : String)
   end
   puts warn_style("No packages found matching: #{query}") unless found
 end
-
 def install_package(repo : Repo, pkg : String, lib_dir : String) : Bool
   url = ""
   found = false
@@ -77,7 +75,6 @@ def install_package(repo : Repo, pkg : String, lib_dir : String) : Bool
   puts success_style("Installed #{pkg} to #{lib_dir}")
   true
 end
-
 def remove_package(pkg : String, lib_dir : String)
   path = File.join(lib_dir, pkg)
   unless File.exists?(path)
@@ -92,7 +89,6 @@ def remove_package(pkg : String, lib_dir : String)
   end
   puts success_style("Removed #{pkg}")
 end
-
 def update_packages(lib_dir : String, local_repo : String)
   files = Dir.entries(lib_dir).select { |f| !File.directory?(File.join(lib_dir, f)) && ![".", ".."].includes?(f) }
   repo = begin
