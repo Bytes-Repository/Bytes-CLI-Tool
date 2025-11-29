@@ -1,5 +1,4 @@
-// go-golang
-> cd src
-> go build
-> sudo mv bytes-cli-tool bytes
+// crystal
+> crystal build src/main.cr --release
+> sudo mv main bytes
 > sudo chmod a+x bytes
