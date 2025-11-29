@@ -4,7 +4,6 @@ require "file_utils"
 require "./repo"
 require "./commands"
 require "./download"
-
 APP_NAME = "Bytes.io CLI Tool"
 VERSION = "0.5"
 REPO_URL = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/main/repository/bytes.io"
@@ -13,28 +12,22 @@ PLUGIN_REPO_URL = "https://raw.githubusercontent.com/Bytes-Repository/bytes.io/m
 LOCAL_PLUGIN_REPO = "/tmp/plugins-repo.hacker"
 LIB_DIR_SUFFIX = "/.hackeros/hacker-lang/libs/"
 PLUGIN_DIR_SUFFIX = "/.hackeros/hacker-lang/plugins/"
-
 # Styles
 def bold_style(text : String) : String
   text.colorize.bold.fore(:white).to_s
 end
-
 def success_style(text : String) : String
   text.colorize.fore(:green).to_s
 end
-
 def error_style(text : String) : String
   text.colorize.fore(:red).to_s
 end
-
 def info_style(text : String) : String
   text.colorize.fore(:cyan).to_s
 end
-
 def warn_style(text : String) : String
   text.colorize.fore(:yellow).to_s
 end
-
 def center_text(text : String, width : Int32) : String
   len = text.size
   if len >= width
@@ -45,40 +38,33 @@ def center_text(text : String, width : Int32) : String
     " " * left + text + " " * right
   end
 end
-
 def header_style(text : String, width : Int32 = 60) : String
   padded = center_text(text, width).colorize.bold.fore(:yellow).to_s
   border = ("─" * width).colorize.fore(:magenta).to_s
   "#{padded}\n#{border}"
 end
-
 def footer_style(text : String) : String
   text.colorize.italic.fore(:dark_gray).to_s
 end
-
 def main
   if ARGV.empty?
     print_usage
     exit(1)
   end
-
   home = ENV["HOME"]? || begin
     puts error_style("Error getting user home")
     exit(1)
   end
-
   lib_dir = File.join(home, LIB_DIR_SUFFIX)
   Dir.mkdir_p(lib_dir) rescue begin
     puts error_style("Error creating lib dir")
     exit(1)
   end
-
   plugin_dir = File.join(home, PLUGIN_DIR_SUFFIX)
   Dir.mkdir_p(plugin_dir) rescue begin
     puts error_style("Error creating plugin dir")
     exit(1)
   end
-
   cmd = ARGV[0]
   case cmd
   when "plugin"
@@ -215,7 +201,6 @@ def main
     exit(1)
   end
 end
-
 def print_usage
   header = header_style("#{APP_NAME} v#{VERSION}")
   commands = %(
@@ -238,7 +223,6 @@ plugin refresh - Refresh the plugin repository
   footer = footer_style("Created by HackerOS Team")
   puts "#{header}\n#{info_style(commands.strip)}\n#{footer}"
 end
-
 def print_plugin_usage
   commands = %(
 Plugin Commands:
@@ -250,7 +234,6 @@ refresh - Refresh the plugin repository
   )
   puts info_style(commands.strip)
 end
-
 def print_info
   info = %(
 Bytes.io CLI Tool for Hacker Lang (HackerOS)
@@ -261,7 +244,6 @@ Plugins installed in: ~/.hackeros/hacker-lang/plugins/
   )
   puts info_style(info.strip)
 end
-
 def print_how_to_use
   guide = %(
 How to use and add your own repo to bytes.io:
@@ -274,7 +256,6 @@ How to use and add your own repo to bytes.io:
   puts info_style(guide.strip)
   puts success_style("Happy hacking!")
 end
-
 def print_how_to_add
   guide = %(
 How to add your repository:
@@ -283,5 +264,4 @@ Alternatively, follow the how-to-use guide to submit via PR.
   )
   puts info_style(guide.strip)
 end
-
 main
