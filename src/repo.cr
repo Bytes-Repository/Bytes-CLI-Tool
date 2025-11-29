@@ -1,76 +1,42 @@
-package main
+require "http/client"
+require "yaml"
+require "file_utils"
 
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
+alias Repo = Hash(String, Hash(String, Hash(String, String)))
 
-	"gopkg.in/yaml.v3"
-)
+def refresh_repo(url : String, local_path : String) : Nil
+  response = HTTP::Client.get(url)
+  if response.status_code != 200
+    raise "Bad status: #{response.status_code}"
+  end
+  Dir.mkdir_p(File.dirname(local_path))
+  File.write(local_path, response.body)
+end
 
-// Repo structure: map[section]map[category]map[name]url
-type Repo map[string]map[string]map[string]string
-
-func refreshRepo(url, localPath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-	dir := filepath.Dir(localPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	f, err := os.Create(localPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
-	return err
-}
-
-func parseRepo(path string) (Repo, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, err
-	}
-	repo := make(Repo)
-	for section, secVal := range raw {
-		secMap, ok := secVal.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		repo[section] = make(map[string]map[string]string)
-		for category, catVal := range secMap {
-			if catVal == nil {
-				repo[section][category] = make(map[string]string)
-				continue
-			}
-			catMap, ok := catVal.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			repo[section][category] = make(map[string]string)
-			for name, urlVal := range catMap {
-				url := ""
-				if urlVal != nil {
-					if s, ok := urlVal.(string); ok {
-						url = s
-					}
-				}
-				repo[section][category][name] = url
-			}
-		}
-	}
-	return repo, nil
-}
+def parse_repo(path : String) : Repo
+  data = File.read(path)
+  raw = YAML.parse(data).as_h
+  repo = Repo.new
+  raw.each do |section, sec_val|
+    next unless sec_val.as_h?
+    sec_map = sec_val.as_h
+    section_str = section.as_s? || next
+    repo[section_str] = Hash(String, Hash(String, String)).new
+    sec_map.each do |category, cat_val|
+      cat_str = category.as_s? || next
+      if cat_val.nil?
+        repo[section_str][cat_str] = Hash(String, String).new
+        next
+      end
+      next unless cat_val.as_h?
+      cat_map = cat_val.as_h
+      repo[section_str][cat_str] = Hash(String, String).new
+      cat_map.each do |name, url_val|
+        name_str = name.as_s? || next
+        url = url_val.try(&.as_s?) || ""
+        repo[section_str][cat_str][name_str] = url
+      end
+    end
+  end
+  repo
+end
