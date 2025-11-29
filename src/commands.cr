@@ -1,156 +1,117 @@
-package main
+require "file_utils"
+require "time"
 
-import (
-	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
-)
+def search_packages(repo : Repo, query : String)
+  found = false
+  puts header_style("Search Results for: #{query}")
+  repo.each do |section, categories|
+    puts bold_style("#{section}:")
+    categories.each do |category, packages|
+      puts " #{info_style("#{category}:")}" unless category.empty?
+      packages.each do |name, url|
+        url_display = url.empty? ? "(no release yet)" : url
+        if name.downcase.includes?(query.downcase)
+          puts " #{success_style(name)} => #{url_display}"
+          found = true
+        end
+      end
+    end
+  end
+  puts warn_style("No packages found matching: #{query}") unless found
+end
 
-func searchPackages(repo Repo, query string) {
-	found := false
-	header := headerStyle.Render("Search Results for: " + query)
-	fmt.Println(header)
-	for section, categories := range repo {
-		fmt.Println(boldStyle.Render(section + ":"))
-		for category, packages := range categories {
-			if category != "" {
-				fmt.Println(" " + infoStyle.Render(category + ":"))
-			}
-			for name, url := range packages {
-				urlDisplay := url
-				if url == "" {
-					urlDisplay = "(no release yet)"
-				}
-				if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-					fmt.Printf(" %s => %s\n", successStyle.Render(name), urlDisplay)
-					found = true
-				}
-			}
-		}
-	}
-	if !found {
-		fmt.Println(warnStyle.Render("No packages found matching: " + query))
-	}
-}
+def install_package(repo : Repo, pkg : String, lib_dir : String) : Bool
+  url = ""
+  found = false
+  repo.each_value do |categories|
+    categories.each_value do |packages|
+      packages.each do |name, u|
+        if name.downcase == pkg.downcase
+          url = u
+          found = true
+          break
+        end
+      end
+      break if found
+    end
+    break if found
+  end
+  if !found
+    puts error_style("Package not found: #{pkg}")
+    return false
+  end
+  if url.empty?
+    puts error_style("No release found for package: #{pkg}")
+    return false
+  end
+  dest = File.join(lib_dir, pkg)
+  tmp_dest = File.join(Dir.tempdir, "#{pkg}-#{Time.utc.to_unix}")
+  puts info_style("Downloading #{pkg} from #{url}")
+  begin
+    download_with_progress(url, tmp_dest)
+  rescue ex
+    puts error_style("Error downloading: #{ex.message}")
+    File.delete(tmp_dest) if File.exists?(tmp_dest)
+    return false
+  end
+  # Remove existing
+  if File.exists?(dest)
+    begin
+      File.delete(dest)
+    rescue ex
+      puts error_style("Error removing old version: #{ex.message}")
+      File.delete(tmp_dest) if File.exists?(tmp_dest)
+      return false
+    end
+  end
+  # Move (copy + delete for cross-device)
+  begin
+    FileUtils.cp(tmp_dest, dest)
+    File.chmod(dest, 0o755)
+    File.delete(tmp_dest)
+  rescue ex
+    puts error_style("Error installing: #{ex.message}")
+    File.delete(tmp_dest) if File.exists?(tmp_dest)
+    return false
+  end
+  puts success_style("Installed #{pkg} to #{lib_dir}")
+  true
+end
 
-func moveFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	if err != nil {
-		os.Remove(dst)
-		return err
-	}
-	out.Sync() // Ensure written to disk
-	err = os.Chmod(dst, 0755)
-	if err != nil {
-		return err
-	}
-	return os.Remove(src)
-}
+def remove_package(pkg : String, lib_dir : String)
+  path = File.join(lib_dir, pkg)
+  unless File.exists?(path)
+    puts warn_style("Package not installed: #{pkg}")
+    return
+  end
+  begin
+    File.delete(path)
+  rescue ex
+    puts error_style("Error removing: #{ex.message}")
+    return
+  end
+  puts success_style("Removed #{pkg}")
+end
 
-func installPackage(repo Repo, pkg string, libDir string) bool {
-	var url string
-	found := false
-	for _, categories := range repo {
-		for _, packages := range categories {
-			for name, u := range packages {
-				if strings.ToLower(name) == strings.ToLower(pkg) {
-					url = u
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if found {
-			break
-		}
-	}
-	if !found {
-		fmt.Println(errorStyle.Render("Package not found: " + pkg))
-		return false
-	}
-	if url == "" {
-		fmt.Println(errorStyle.Render("No release found for package: " + pkg))
-		return false
-	}
-	dest := filepath.Join(libDir, pkg)
-	tmpDest := filepath.Join(os.TempDir(), pkg+"-"+fmt.Sprintf("%d", time.Now().Unix()))
-	fmt.Println(infoStyle.Render("Downloading " + pkg + " from " + url))
-	err := downloadWithProgress(url, tmpDest)
-	if err != nil {
-		fmt.Println(errorStyle.Render("Error downloading: " + err.Error()))
-		return false
-	}
-	// Remove existing if exists
-	if _, err := os.Stat(dest); err == nil {
-		if err := os.Remove(dest); err != nil {
-			fmt.Println(errorStyle.Render("Error removing old version: " + err.Error()))
-			os.Remove(tmpDest)
-			return false
-		}
-	}
-	// Move to lib dir using copy to handle cross-device
-	if err := moveFile(tmpDest, dest); err != nil {
-		fmt.Println(errorStyle.Render("Error installing: " + err.Error()))
-		os.Remove(tmpDest)
-		return false
-	}
-	fmt.Println(successStyle.Render("Installed " + pkg + " to " + libDir))
-	return true
-}
-
-func removePackage(pkg string, libDir string) {
-	path := filepath.Join(libDir, pkg)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Println(warnStyle.Render("Package not installed: " + pkg))
-		return
-	}
-	if err := os.Remove(path); err != nil {
-		fmt.Println(errorStyle.Render("Error removing: " + err.Error()))
-		return
-	}
-	fmt.Println(successStyle.Render("Removed " + pkg))
-}
-
-func updatePackages(libDir, localRepo string) {
-	files, err := os.ReadDir(libDir)
-	if err != nil {
-		fmt.Println(errorStyle.Render("Error reading lib dir: " + err.Error()))
-		return
-	}
-	repo, err := parseRepo(localRepo)
-	if err != nil {
-		fmt.Println(errorStyle.Render("Error parsing repo: " + err.Error()))
-		return
-	}
-	updated := 0
-	for _, file := range files {
-		if !file.IsDir() {
-			pkg := file.Name()
-			fmt.Println(infoStyle.Render("Checking update for " + pkg))
-			if installPackage(repo, pkg, libDir) {
-				updated++
-			}
-		}
-	}
-	if updated == 0 {
-		fmt.Println(warnStyle.Render("No packages installed to update."))
-	} else {
-		fmt.Println(successStyle.Render(fmt.Sprintf("Updated %d packages.", updated)))
-	}
-}
+def update_packages(lib_dir : String, local_repo : String)
+  files = Dir.entries(lib_dir).select { |f| !File.directory?(File.join(lib_dir, f)) && ![".", ".."].includes?(f) }
+  repo = begin
+    parse_repo(local_repo)
+  rescue ex
+    puts error_style("Error parsing repo: #{ex.message}")
+    return
+  end
+  updated = 0
+  files.each do |file|
+    pkg = file
+    puts info_style("Checking update for #{pkg}")
+    if install_package(repo, pkg, lib_dir)
+      updated += 1
+    end
+  end
+  if updated == 0
+    puts warn_style("No packages installed to update.")
+  else
+    puts success_style("Updated #{updated} packages.")
+  end
+end
