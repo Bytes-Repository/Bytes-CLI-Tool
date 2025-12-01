@@ -1,6 +1,14 @@
 name: bytes
-version: 0.5.0
-
-crystal: '>= 1.0.0'
-
+version: 0.5
+authors:
+  - HackerOS Team <hackeros068@gmail.com>
 license: APACHE-2.0
+crystal: >= 1.0.0
+
+targets:
+  bytes:
+    main: src/main.cr
+
+dependencies:
+  clim:
+    github: matsumotory/clim
