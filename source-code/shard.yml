@@ -10,7 +10,3 @@ crystal: ">= 1.0.0"
 targets:
   bytes:
     main: src/main.cr
-
-dependencies:
-  clim:
-    github: at-grandpa/clim
