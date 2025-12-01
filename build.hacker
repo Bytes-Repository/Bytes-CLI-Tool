@@ -1,4 +1,5 @@
 // crystal
+
+> cd source-code
 > crystal build src/main.cr --release
 > sudo mv main bytes
-> sudo chmod a+x bytes
