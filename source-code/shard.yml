@@ -1,9 +1,11 @@
 name: bytes
 version: 0.5
+
 authors:
   - HackerOS Team <hackeros068@gmail.com>
+
 license: APACHE-2.0
-crystal: >= 1.0.0
+crystal: ">= 1.0.0"
 
 targets:
   bytes:
@@ -11,4 +13,4 @@ targets:
 
 dependencies:
   clim:
-    github: matsumotory/clim
+    github: at-grandpa/clim
