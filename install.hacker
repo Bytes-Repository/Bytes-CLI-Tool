@@ -1,6 +1,0 @@
-// sudo
-// chmod
-// curl
-> curl -fsSL 'https://github.com/Bytes-Repository/Bytes-CLI-Tool/releases/download/v0.3/bytes' -o ~/.hackeros/hacker-lang/bin/bytes
-> sudo curl -fsSL 'https://github.com/Bytes-Repository/Bytes-CLI-Tool/releases/download/v0.3/bytes' -o /usr/bin/bytes
-> sudo chmod +x /usr/bin/bytes ~/.hackeros/hacker-lang/bin/bytes
