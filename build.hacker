@@ -1,5 +1,6 @@
-// crystal
+// golang
 
 > cd source-code
-> crystal build src/main.cr --release
-> sudo mv main bytes
+> go get bytes-manager
+> go build
+> sudo mv bytes-manager bytes
