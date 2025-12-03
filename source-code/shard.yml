@@ -1,9 +1,0 @@
-name: bytes
-version: 0.5
-
-authors:
-  - HackerOS Team <hackeros068@gmail.com>
-
-crystal: ">= 1.0.0"
-
-license: APACHE-2.0
